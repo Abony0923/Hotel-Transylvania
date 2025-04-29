@@ -1,0 +1,143 @@
+.model small
+.stack 100h
+.data
+    in_prompt db 'Enter check-in date (DD/MM/YY): $'
+    out_prompt db 13,10,'Enter check-out date (DD/MM/YY): $'
+    meal_prompt db 13,10,'Choose meal - B (200), L (300), D (400): $'
+    res_prompt db 13,10,'Enter reservation date (DD/MM/YY): $'
+    add_msg db 13,10,'Meal added to bill.$'
+    error_msg db 13,10,'Invalid reservation date!$'
+    in_day db ?
+    in_month db ?
+    in_year db ?
+    out_day db ?
+    out_month db ?
+    out_year db ?
+    res_day db ?
+    res_month db ?
+    res_year db ?
+    meal_type db ?
+    total_bill dw 0
+.code
+.startup
+
+    ; ------------ Check-in Date Input ------------
+    mov ah, 09h
+    lea dx, in_prompt
+    int 21h
+    call read_date
+    mov in_day, al
+    mov in_month, ah
+    mov in_year, bl
+
+    ; ------------ Check-out Date Input ------------
+    mov ah, 09h
+    lea dx, out_prompt
+    int 21h
+    call read_date
+    mov out_day, al
+    mov out_month, ah
+    mov out_year, bl
+
+    ; ------------ Meal Selection ------------
+    mov ah, 09h
+    lea dx, meal_prompt
+    int 21h
+    mov ah, 01h
+    int 21h
+    mov meal_type, al
+
+    ; ------------ Reservation Date Input ------------
+    mov ah, 09h
+    lea dx, res_prompt
+    int 21h
+    call read_date
+    mov res_day, al
+    mov res_month, ah
+    mov res_year, bl
+
+    ; ------------ Validate Reservation Date ------------
+    ; For simplicity, we'll compare only the day component
+    mov al, res_day
+    cmp al, in_day
+    jb INVALID_DATE
+    cmp al, out_day
+    ja INVALID_DATE
+
+    ; ------------ Add Meal Price ------------
+    mov al, meal_type
+    cmp al, 'B'
+    je ADD_B
+    cmp al, 'L'
+    je ADD_L
+    cmp al, 'D'
+    je ADD_D
+    jmp INVALID_DATE
+
+ADD_B:
+    mov ax, 200
+    jmp ADD_PRICE
+ADD_L:
+    mov ax, 300
+    jmp ADD_PRICE
+ADD_D:
+    mov ax, 400
+
+ADD_PRICE:
+    add total_bill, ax
+    mov ah, 09h
+    lea dx, add_msg
+    int 21h
+    jmp DONE
+
+INVALID_DATE:
+    mov ah, 09h
+    lea dx, error_msg
+    int 21h
+
+DONE:
+    mov ax, 4C00h
+    int 21h
+
+; ------------ Subroutine to Read Date in DD/MM/YY Format ------------
+read_date proc
+    ; Read Day
+    call read_two_digit
+    mov al, bl  ; Day in AL
+    ; Skip '/'
+    mov ah, 01h
+    int 21h
+
+    ; Read Month
+    call read_two_digit
+    mov ah, bl  ; Month in AH
+    ; Skip '/'
+    mov ah, 01h
+    int 21h
+
+    ; Read Year
+    call read_two_digit
+    mov bl, bl  ; Year in BL
+    ret
+read_date endp
+
+; ------------ Subroutine to Read Two-Digit Number ------------
+read_two_digit proc
+    mov ah, 01h
+    int 21h
+    sub al, '0'
+    mov bh, al
+    mov ah, 01h
+    int 21h
+    sub al, '0'
+    mov bl, al
+    mov al, bh
+    mov ah, 0
+    mov cx, 10
+    mul cx
+    add al, bl
+    mov bl, al
+    ret
+read_two_digit endp
+
+end
