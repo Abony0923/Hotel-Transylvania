@@ -5,16 +5,18 @@
     ; ----- PROMPTS AND MESSAGES -----
     guest_prompt db 'Enter Guest ID (1-99): $'
     res_prompt db 13,10,'Enter reservation date (DD/MM/YY): $'
-    meal_prompt db 13,10,'Choose Meal Time - B (Breakfast 6AM-10AM), L (Lunch 12PM-3PM), D (Dinner 7PM-10PM): $'
-    cuisine_prompt_b db 13,10,'Choose Cuisine - 1. Bengali (150), 2. English (200): $'
-    cuisine_prompt_ld db 13,10,'Choose Cuisine - 1. Bengali (300), 2. Chinese (400), 3. Middle Eastern (500): $'
+    meal_prompt db 13,10,'Choose Meal Time:',13,10,' B - Breakfast (6AM-10AM)',13,10,' L - Lunch (12PM-3PM)',13,10,' D - Dinner (7PM-10PM)',13,10,'Your choice: $'
+
+    cuisine_prompt_b db 13,10,'Choose Breakfast Cuisine:',13,10,' 1. Bengali - 150 Taka',13,10,' 2. English - 200 Taka',13,10,'Your choice: $'
+    cuisine_prompt_ld db 13,10,'Choose Cuisine for Lunch/Dinner:',13,10,' 1. Bengali - 300 Taka',13,10,' 2. Chinese - 400 Taka',13,10,' 3. Middle Eastern - 500 Taka',13,10,'Your choice: $'
+
     person_prompt db 13,10,'Enter number of people: $'
     another_prompt db 13,10,'Reserve another meal for the same day? (Y/N): $'
     add_msg db 13,10,'Meal added to bill.$'
     error_msg db 13,10,'Invalid input!$'
     final_msg db 13,10,'Total bill: $'
 
-    ; ----- DATE STORAGE -----
+    ; ----- STORAGE -----
     res_day db ?
     res_month db ?
     res_year db ?
@@ -213,7 +215,6 @@ MULTI:
 calculate_price endp
 
 print_number proc
-    ; AX = number
     mov cx, 0
     mov bx, 10
 print_loop:
