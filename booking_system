@@ -1,0 +1,872 @@
+.model small
+.stack 100h
+.data
+    ; System variables
+    current_id dw 0    ; Current user ID, increments with each booking
+    
+    ; Prompts and messages 
+    welcome_msg db 'Welcome to Hotel Transylvania$'
+    choices db 'What would you like to do?$'
+    option1 db '1.Book$'
+    user_info_title db '=USER INFORMATION=$' 
+    choosing db "choose one:$"
+    
+    option2 db '2.Login$' 
+    user_login_title db '=USER LOGIN=$'
+    asking_name db "Name:$"
+    asking_id db "ID:$" 
+    
+    m1 db "What would you like to do now?$"
+    m2 db "1.Room service$"
+    m3 db "2.Arrange an event$"
+    m4 db "3.View your bill$"
+    m5 db "4.Restaurant reservation$"
+    m6 db "5.Drop a review/feedback$" 
+    m7 db "6.Cancel your stay with us"
+    m8 db "7.Go back$"
+    
+    
+        
+    prompt_name     db 'Enter name (max 20 chars): $'
+    prompt_age      db 13, 10, 'Enter age: $'
+    msg_invalid_age db 13, 10, 'Invalid age. Must be 18 or above$'
+    prompt_guests   db 13, 10, 'Enter number of guests: $'
+    prompt_checkin  db 13, 10, 'Enter check-in date (DD-MM-YY): $'
+    prompt_checkout db 13, 10, 'Enter check-out date (DD-MM-YY): $'
+    msg_duration    db 13, 10, 'Duration of stay (days): $'
+    
+    ; Confirmation messages
+    msg_confirm     db 13, 10, 'Choose an option:', 13, 10
+                    db '1. Confirm', 13, 10
+                    db '2. Cancel', 13, 10, 'Your choice: $'
+    msg_invalid_choice db 13, 10, 'Invalid choice. Please try again.$'
+    msg_book_room   db 13, 10, 'BOOK room', 13, 10, '$'
+    
+    ; Floor selection
+    msg_floor       db 13, 10, 'Choose a floor:', 13, 10
+                    db '1. Ground Floor', 13, 10
+                    db '2. First Floor', 13, 10
+                    db '3. Second Floor', 13, 10, 'Your choice: $'
+                    
+    ; Room type selection
+    msg_room_type   db 13, 10, 'Choose room type:', 13, 10
+                    db '1. Single', 13, 10
+                    db '2. Double', 13, 10
+                    db '3. Deluxe', 13, 10, 'Your choice: $'
+                    
+    ; Availability messages
+    msg_available   db 13, 10, 'Room is available!$'
+    msg_unavailable db 13, 10, 'Sorry, this room is not available.$'
+    
+    ; Confirmation message
+    msg_confirmation db 13, 10, 'Your ID is $'
+    msg_thanks       db '. Thank you for choosing us!$'
+    
+    ; Floor names
+    floor_names     db 'Ground$', '1st   $', '2nd   $'
+    
+    ; Room type names
+    type_names      db 'Sin$', 'Dou$', 'Del$'
+    
+    ; Room availability array (1=available, 0=unavailable)
+    ; [ground-single, ground-double, ground-deluxe, 1st-single, 1st-double, 1st-deluxe, 2nd-single, 2nd-double, 2nd-deluxe]
+    room_available  db 1, 1, 1, 1, 1, 1, 1, 1, 1
+    
+    ; Room names (each name is 10 bytes to simplify)
+    room_names      db 'Ground-Sin$'
+                    db 'Ground-Dou$'
+                    db 'Ground-Del$'
+                    db '1st-Sin   $'
+                    db '1st-Dou   $'
+                    db '1st-Del   $'
+                    db '2nd-Sin   $'
+                    db '2nd-Dou   $'
+                    db '2nd-Del   $'
+    
+    ; Guest information storage (up to 20 guests)
+    ; Each entry has: name(21), ID(2), bill(2) = 25 bytes per guest
+    guest_data      db 20 dup(25 dup(0))
+    
+    ; Input buffers
+    buffer      db 22        ; First byte is buffer size (20 chars + CR)
+                db 0         ; Second byte will store actual length read
+                db 22 dup(0) ; Buffer for input
+    name_array  db 21 dup('$')  ; 20 chars + '$' terminator
+    
+    ; Numeric variables
+    age         dw 0
+    num_guests  dw 0
+    floor_choice db 0
+    type_choice  db 0
+    room_index   db 0
+    
+    ; Date variables
+    checkin_day   db 0
+    checkin_month db 0
+    checkin_year  db 0
+    checkout_day   db 0
+    checkout_month db 0
+    checkout_year  db 0
+    
+    ; For numeric input and output
+    ten         dw 10        ; For decimal conversion
+    temp        dw 0         ; Temporary storage
+    num_buffer  db 6 dup('$') ; Buffer for number output
+    
+    ; Date buffer (DD-MM-YY format = 8 chars)
+    date_buffer db 9, 0, 9 dup(0)
+    
+    ; Days in each month (for simplicity, not accounting for leap years)
+    days_in_month db 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+    
+    ; For duration calculation
+    duration    dw 0
+    
+.code
+main proc
+    mov ax, @data
+    mov ds, ax 
+    
+lea dx,welcome_msg
+mov ah,9
+int 21h
+ 
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h    
+    
+Home_page:
+ 
+
+lea dx,choices
+mov ah,9
+int 21h
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h
+
+lea dx,option1
+mov ah,9
+int 21h
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h  
+
+lea dx,option2
+mov ah,9
+int 21h
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h
+
+lea dx,choosing
+mov ah,9
+int 21h
+
+mov ah,1
+int 21h
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h  
+ 
+
+sub al,48
+cmp al,1
+je start_booking 
+
+cmp al,2
+
+je start_login 
+ 
+ 
+
+ 
+
+
+
+    
+    
+start_booking:
+    ; Clear name array
+    lea di, name_array
+    mov cx, 21
+    mov al, '$'
+    rep stosb
+    
+    ; ---- Name Input ----
+    mov ah, 09h
+    lea dx, prompt_name
+    int 21h
+    
+    mov ah, 0Ah       ; Function to read string
+    lea dx, buffer
+    int 21h
+    
+    ; Transfer name from buffer to name_array
+    mov cl, buffer[1]  ; Get actual length
+    mov ch, 0          ; Clear CH for CX counter
+    cmp cx, 0          ; Check if input is empty
+    je input_age       ; If empty, skip transfer
+    
+    lea si, buffer+2   ; Source: buffer+2 (actual input starts here)
+    lea di, name_array ; Destination: name_array
+    
+    transfer_name:
+        mov al, [si]    ; Get character from buffer
+        mov [di], al    ; Store in name_array
+        inc si
+        inc di
+        loop transfer_name
+    
+    ; Add $ terminator
+    mov byte ptr [di], '$'
+    
+    ; ---- Age Input and Validation ----
+input_age:
+    ; Display prompt
+    mov ah, 09h
+    lea dx, prompt_age
+    int 21h
+    
+    ; Read age
+    call read_number   ; Read age into AX
+    mov age, ax        ; Store age
+    
+    ; Check if age >= 18
+    cmp ax, 18
+    jae age_valid      ; Jump if above or equal (>=)
+    
+    ; If we get here, age is less than 18
+    ; Display invalid age message
+    mov ah, 09h
+    lea dx, msg_invalid_age
+    int 21h
+    
+    ; Loop back for new age input
+    jmp input_age      ; Ask again
+    
+age_valid:
+    ; ---- Number of Guests Input ----
+    mov ah, 09h
+    lea dx, prompt_guests
+    int 21h
+    
+    call read_number
+    mov num_guests, ax
+    
+    ; ---- Check-in Date Input ----
+input_checkin:
+    mov ah, 09h
+    lea dx, prompt_checkin
+    int 21h
+    
+    ; Read check-in date (DD-MM-YY)
+    mov ah, 0Ah
+    lea dx, date_buffer
+    int 21h
+    
+    ; Extract day
+    mov al, date_buffer[2]  ; First digit
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bl, date_buffer[3]  ; Second digit
+    sub bl, '0'
+    add al, bl
+    mov checkin_day, al
+    
+    ; Extract month
+    mov al, date_buffer[5]  ; First digit
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bl, date_buffer[6]  ; Second digit
+    sub bl, '0'
+    add al, bl
+    mov checkin_month, al
+    
+    ; Extract year
+    mov al, date_buffer[8]  ; First digit
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bl, date_buffer[9]  ; Second digit
+    sub bl, '0'
+    add al, bl
+    mov checkin_year, al
+    
+    ; ---- Check-out Date Input ----
+input_checkout:
+    mov ah, 09h
+    lea dx, prompt_checkout
+    int 21h
+    
+    ; Read check-out date (DD-MM-YY)
+    mov ah, 0Ah
+    lea dx, date_buffer
+    int 21h
+    
+    ; Extract day
+    mov al, date_buffer[2]  ; First digit
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bl, date_buffer[3]  ; Second digit
+    sub bl, '0'
+    add al, bl
+    mov checkout_day, al
+    
+    ; Extract month
+    mov al, date_buffer[5]  ; First digit
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bl, date_buffer[6]  ; Second digit
+    sub bl, '0'
+    add al, bl
+    mov checkout_month, al
+    
+    ; Extract year
+    mov al, date_buffer[8]  ; First digit
+    sub al, '0'
+    mov bl, 10
+    mul bl
+    mov bl, date_buffer[9]  ; Second digit
+    sub bl, '0'
+    add al, bl
+    mov checkout_year, al
+    
+    ; ---- Calculate Duration of Stay ----
+    ; This is a simplified calculation assuming dates are in same year
+    ; Convert all to days and subtract
+    
+    ; Convert check-in date to total days
+    mov ax, 0
+    
+    ; Add days from previous months
+    mov bx, 0
+    mov bl, checkin_month
+    dec bl              ; Adjust for zero-based array
+    cmp bl, 0
+    jl checkin_days_only  ; If month is 1 (bl=0), skip month days
+    
+    ; Sum days from previous months
+checkin_month_loop:
+    mov si, bx
+    mov dl, days_in_month[si]
+    mov dh, 0
+    add ax, dx
+    dec bx
+    jge checkin_month_loop
+    
+checkin_days_only:
+    ; Add days of current month
+    mov bl, checkin_day
+    mov bh, 0
+    add ax, bx
+    
+    ; Store check-in total days
+    mov cx, ax
+    
+    ; Convert check-out date to total days (same logic)
+    mov ax, 0
+    
+    ; Add days from previous months
+    mov bx, 0
+    mov bl, checkout_month
+    dec bl              ; Adjust for zero-based array
+    cmp bl, 0
+    jl checkout_days_only
+    
+checkout_month_loop:
+    mov si, bx
+    mov dl, days_in_month[si]
+    mov dh, 0
+    add ax, dx
+    dec bx
+    jge checkout_month_loop
+    
+checkout_days_only:
+    ; Add days of current month
+    mov bl, checkout_day
+    mov bh, 0
+    add ax, bx
+    
+    ; Subtract to get duration
+    sub ax, cx
+    
+    ; Handle any year difference (simplified: 365 days per year)
+    mov bl, checkout_year
+    sub bl, checkin_year
+    cmp bl, 0
+    jle store_duration
+    
+    ; Add 365 days for each year difference
+    mov cx, 365
+year_diff_loop:
+    add ax, cx
+    dec bl
+    jnz year_diff_loop
+    
+store_duration:
+    mov duration, ax
+    
+    ; Display duration
+    mov ah, 09h
+    lea dx, msg_duration
+    int 21h
+    
+    mov ax, duration
+    call display_number
+    
+    ; Calculate bill amount (duration * 500)
+    mov ax, duration
+    mov cx, 500
+    mul cx
+    
+    ; Store bill amount in BX register (as requested)
+    ; BX will be used exclusively for bill storage
+    mov bx, ax
+    
+confirm_options:
+    ; ---- Show Confirmation Options ----
+    mov ah, 09h
+    lea dx, msg_confirm
+    int 21h
+    
+    call read_single_digit
+    
+    cmp al, '1'
+    je confirm_booking
+    cmp al, '2'
+    je start_booking    ; Start over if user chooses Cancel
+    
+    ; Invalid choice, show error message and try again
+    mov ah, 09h
+    lea dx, msg_invalid_choice
+    int 21h
+    jmp confirm_options  ; Loop back to show options again
+    
+confirm_booking:
+    ; Show "BOOK room" message
+    mov ah, 09h
+    lea dx, msg_book_room
+    int 21h
+    
+floor_selection:
+    ; ---- Floor Selection ----
+    mov ah, 09h
+    lea dx, msg_floor
+    int 21h
+    
+    call read_single_digit
+    sub al, '0'      ; Convert to number
+    
+    ; Validate floor choice (1-3)
+    cmp al, 1
+    jl invalid_floor  ; Invalid, retry
+    cmp al, 3
+    jg invalid_floor  ; Invalid, retry
+    
+    mov floor_choice, al
+    dec floor_choice    ; Convert to 0-based index
+    jmp room_type_selection
+    
+invalid_floor:
+    ; Display invalid choice message
+    mov ah, 09h
+    lea dx, msg_invalid_choice
+    int 21h
+    jmp floor_selection
+    
+room_type_selection:
+    ; ---- Room Type Selection ----
+    mov ah, 09h
+    lea dx, msg_room_type
+    int 21h
+    
+    call read_single_digit
+    sub al, '0'      ; Convert to number
+    
+    ; Validate room type choice (1-3)
+    cmp al, 1
+    jl invalid_room_type  ; Invalid, retry
+    cmp al, 3
+    jg invalid_room_type  ; Invalid, retry
+    
+    mov type_choice, al
+    dec type_choice    ; Convert to 0-based index
+    jmp check_availability
+    
+invalid_room_type:
+    ; Display invalid choice message
+    mov ah, 09h
+    lea dx, msg_invalid_choice
+    int 21h
+    jmp room_type_selection
+    
+check_availability:
+    ; Calculate room index = floor_choice * 3 + type_choice
+    mov al, floor_choice
+    mov bl, 3
+    mul bl
+    add al, type_choice
+    mov room_index, al    ; Store as 8-bit value
+    
+    ; Check if room is available
+    xor si, si          ; Clear SI
+    mov bl, room_index  ; Use BL as index (8-bit)
+    xor bh, bh          ; Clear BH to make BX valid for addressing
+    
+    ; Check availability
+    cmp room_available[bx], 1
+    je room_is_available
+    
+    ; Room unavailable
+    mov ah, 09h
+    lea dx, msg_unavailable
+    int 21h
+    jmp floor_selection  ; Go back to floor selection
+    
+room_is_available:
+    ; Mark room as unavailable
+    mov room_available[bx], 0
+    
+    ; Increment user ID
+    inc current_id
+    
+    ; Store guest information
+    call store_guest_info
+    
+    ; Show confirmation message
+    mov ah, 09h
+    lea dx, msg_available
+    int 21h
+    
+    mov ah, 09h
+    lea dx, msg_confirmation
+    int 21h
+    
+    mov ax, current_id
+    call display_number
+    
+    mov ah, 09h
+    lea dx, msg_thanks
+    int 21h
+    
+    mov dl,10
+    mov ah,2
+    int 21h
+    mov dl,13
+    mov ah,2
+    int 21h
+    
+    
+    ; Ready for next customer
+    jmp Home_page
+    
+end_program:
+    ; Terminate program
+    mov ah, 4Ch
+    int 21h
+main endp
+
+; ---- Procedure to read a number from keyboard into AX ----
+read_number proc
+    push bx
+    push cx
+    push dx
+    
+    mov bx, 0      ; Initialize result in BX
+    
+    read_digit:
+        mov ah, 01h  ; Read character
+        int 21h
+        
+        cmp al, 13   ; Check for Enter key
+        je read_done
+        
+        cmp al, '0'  ; Check if digit
+        jl read_digit
+        cmp al, '9'
+        jg read_digit
+        
+        ; Convert ASCII to binary
+        sub al, '0'
+        
+        ; Save digit
+        mov cl, al
+        mov ch, 0
+        
+        ; Multiply current result by 10
+        mov ax, bx
+        mov bx, 10
+        mul bx       ; AX = AX * 10
+        
+        ; Add new digit
+        add ax, cx   ; AX = AX + digit
+        mov bx, ax   ; BX holds running total
+        
+        jmp read_digit
+        
+    read_done:
+        mov ax, bx   ; Put final result in AX
+        pop dx
+        pop cx
+        pop bx
+        ret
+read_number endp
+
+; ---- Procedure to read a single digit ----
+read_single_digit proc
+    mov ah, 01h  ; Read character
+    int 21h
+    ret
+read_single_digit endp
+
+; ---- Procedure to display a number from AX ----
+display_number proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    
+    mov cx, 0      ; Digit counter
+    mov bx, 10     ; Divisor
+    
+    ; Special case for zero
+    cmp ax, 0
+    jne convert_loop
+    mov num_buffer[0], '0'
+    mov cx, 1
+    jmp prepare_output
+    
+    convert_loop:
+        cmp ax, 0
+        je prepare_output
+        
+        mov dx, 0
+        div bx                ; AX = quotient, DX = remainder
+        
+        add dl, '0'           ; Convert to ASCII
+        push dx               ; Save digit
+        inc cx                ; Increment counter
+        
+        jmp convert_loop
+        
+    prepare_output:
+        mov si, 0
+        
+    output_loop:
+        cmp cx, 0
+        je finish_output
+        
+        pop dx                ; Get digit
+        mov num_buffer[si], dl
+        inc si
+        dec cx
+        
+        jmp output_loop
+        
+    finish_output:
+        mov num_buffer[si], '$'  ; Add string terminator
+        
+        mov ah, 09h
+        lea dx, num_buffer
+        int 21h
+        
+        pop si
+        pop dx
+        pop cx
+        pop bx
+        pop ax
+        ret
+display_number endp  
+
+start_login: 
+
+ 
+
+lea dx, asking_id
+mov ah,9
+int 21h
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+
+mov ah,1
+int 21h  
+
+lea dx,m1
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+
+lea dx,m2
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+lea dx,m3
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+lea dx,m4
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+lea dx,m5
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+lea dx,m6
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+lea dx,m7
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+
+lea dx,m8
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h
+
+lea dx,choosing
+mov ah,9
+int 21h 
+
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h 
+
+mov ah,1
+int 21h
+ 
+ 
+
+
+
+
+
+
+
+
+
+; ---- Procedure to store guest information ----
+store_guest_info proc
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    
+    ; Calculate offset for the new guest
+    ; Each guest record is 25 bytes
+    mov ax, current_id
+    dec ax              ; Convert to 0-based index
+    mov cx, 25
+    mul cx              ; AX = offset in guest_data
+    
+    lea di, guest_data
+    add di, ax          ; DI now points to the guest record
+    
+    ; Store name (copy from name_array to guest_data)
+    lea si, name_array
+    mov cx, 21          ; Max name length + terminator
+    rep movsb
+    
+    ; Store ID (2 bytes)
+    mov ax, current_id
+    stosw
+    
+    ; Store bill amount (2 bytes)
+    mov ax, bx         ; Bill amount was stored in BX
+    stosw
+    
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+store_guest_info endp
+
+
+end main
