@@ -1,6 +1,8 @@
-.model small
-.stack 100h
-.data
+.MODEL SMALL
+ 
+.STACK 100H
+
+.DATA
 
 menu db 'Room Service Menu:',13,10
      db '1. Housekeeping Service - 1000 Taka',13,10
@@ -35,11 +37,15 @@ service_counts dw 10,10,10,10
 total_cost dw 0
 temp_cost dw 0
 
-.code
+.CODE
+MAIN PROC
 
-main:
-    mov ax, @data
-    mov ds, ax
+; initialize DS
+
+MOV AX,@DATA
+MOV DS,AX
+ 
+
 
 start_booking:
     mov ah, 0
