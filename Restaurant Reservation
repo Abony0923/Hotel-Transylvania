@@ -7,6 +7,9 @@
     res_prompt db 13,10,'Enter reservation date (DD/MM/YY): $'
     add_msg db 13,10,'Meal added to bill.$'
     error_msg db 13,10,'Invalid reservation date!$'
+    final_msg db 13,10,'Total bill: $'
+    newline db 13,10,'$'
+
     in_day db ?
     in_month db ?
     in_year db ?
@@ -25,7 +28,8 @@
     mov ah, 09h
     lea dx, in_prompt
     int 21h
-    call read_date
+    call read_valid_date
+    jc INVALID_DATE
     mov in_day, al
     mov in_month, ah
     mov in_year, bl
@@ -34,7 +38,8 @@
     mov ah, 09h
     lea dx, out_prompt
     int 21h
-    call read_date
+    call read_valid_date
+    jc INVALID_DATE
     mov out_day, al
     mov out_month, ah
     mov out_year, bl
@@ -51,19 +56,32 @@
     mov ah, 09h
     lea dx, res_prompt
     int 21h
-    call read_date
+    call read_valid_date
+    jc INVALID_DATE
     mov res_day, al
     mov res_month, ah
     mov res_year, bl
 
-    ; ------------ Validate Reservation Date ------------
-    ; For simplicity, we'll compare only the day component
-    mov al, res_day
-    cmp al, in_day
-    jb INVALID_DATE
-    cmp al, out_day
+    ; ------------ Validate Reservation is BEFORE Check-In ------------
+    ; Compare Year
+    mov al, res_year
+    cmp al, in_year
+    jb VALID_RESERVATION
     ja INVALID_DATE
 
+    ; Same year — check month
+    mov al, res_month
+    cmp al, in_month
+    jb VALID_RESERVATION
+    ja INVALID_DATE
+
+    ; Same month — check day
+    mov al, res_day
+    cmp al, in_day
+    jb VALID_RESERVATION
+    jmp INVALID_DATE
+
+VALID_RESERVATION:
     ; ------------ Add Meal Price ------------
     mov al, meal_type
     cmp al, 'B'
@@ -88,38 +106,63 @@ ADD_PRICE:
     mov ah, 09h
     lea dx, add_msg
     int 21h
-    jmp DONE
+    jmp SHOW_BILL
 
 INVALID_DATE:
     mov ah, 09h
     lea dx, error_msg
     int 21h
+    jmp DONE
+
+SHOW_BILL:
+    mov ah, 09h
+    lea dx, newline
+    int 21h
+    lea dx, final_msg
+    int 21h
+
+    mov ax, total_bill
+    call print_number
 
 DONE:
     mov ax, 4C00h
     int 21h
 
-; ------------ Subroutine to Read Date in DD/MM/YY Format ------------
-read_date proc
-    ; Read Day
+; ------------ Validate and Read Realistic Date ------------
+read_valid_date proc
+    ; Reads a valid DD/MM/YY and returns in AL (day), AH (month), BL (year)
+    ; Carry flag set = invalid date
     call read_two_digit
-    mov al, bl  ; Day in AL
+    mov al, bl  ; Day
+    cmp al, 1
+    jb invalid
+    cmp al, 31
+    ja invalid
+
     ; Skip '/'
     mov ah, 01h
     int 21h
 
-    ; Read Month
     call read_two_digit
-    mov ah, bl  ; Month in AH
+    mov ah, bl  ; Month
+    cmp ah, 1
+    jb invalid
+    cmp ah, 12
+    ja invalid
+
     ; Skip '/'
     mov ah, 01h
     int 21h
 
-    ; Read Year
     call read_two_digit
-    mov bl, bl  ; Year in BL
+    mov bl, bl  ; Year
+    clc         ; clear carry = valid
     ret
-read_date endp
+
+invalid:
+    stc         ; set carry = invalid
+    ret
+read_valid_date endp
 
 ; ------------ Subroutine to Read Two-Digit Number ------------
 read_two_digit proc
@@ -140,4 +183,26 @@ read_two_digit proc
     ret
 read_two_digit endp
 
+; ------------ Print Number in AX ------------
+print_number proc
+    mov cx, 0
+    mov bx, 10
+.next_digit:
+    xor dx, dx
+    div bx
+    push dx
+    inc cx
+    test ax, ax
+    jnz .next_digit
+
+.print_loop:
+    pop dx
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+    loop .print_loop
+    ret
+print_number endp
+
 end
+
