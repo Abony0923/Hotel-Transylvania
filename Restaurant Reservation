@@ -1,50 +1,53 @@
+; Professional Restaurant Reservation System (EMU8086 Compatible)
 .model small
 .stack 100h
 .data
-    in_prompt db 'Enter check-in date (DD/MM/YY): $'
-    out_prompt db 13,10,'Enter check-out date (DD/MM/YY): $'
-    meal_prompt db 13,10,'Choose meal - B (200), L (300), D (400): $'
+    ; ----- PROMPTS AND MESSAGES -----
+    guest_prompt db 'Enter Guest ID (1-99): $'
     res_prompt db 13,10,'Enter reservation date (DD/MM/YY): $'
+    meal_prompt db 13,10,'Choose Meal Time - B (Breakfast 6AM-10AM), L (Lunch 12PM-3PM), D (Dinner 7PM-10PM): $'
+    cuisine_prompt_b db 13,10,'Choose Cuisine - 1. Bengali (150), 2. English (200): $'
+    cuisine_prompt_ld db 13,10,'Choose Cuisine - 1. Bengali (300), 2. Chinese (400), 3. Middle Eastern (500): $'
+    person_prompt db 13,10,'Enter number of people: $'
+    another_prompt db 13,10,'Reserve another meal for the same day? (Y/N): $'
     add_msg db 13,10,'Meal added to bill.$'
-    error_msg db 13,10,'Invalid reservation date!$'
+    error_msg db 13,10,'Invalid input!$'
     final_msg db 13,10,'Total bill: $'
-    newline db 13,10,'$'
 
-    in_day db ?
-    in_month db ?
-    in_year db ?
-    out_day db ?
-    out_month db ?
-    out_year db ?
+    ; ----- DATE STORAGE -----
     res_day db ?
     res_month db ?
     res_year db ?
+
+    guest_id db ?
     meal_type db ?
+    cuisine_choice db ?
+    num_people db ?
     total_bill dw 0
+    input_buf db 3 dup(?)
+
 .code
 .startup
 
-    ; ------------ Check-in Date Input ------------
+; -------- GET GUEST ID --------
     mov ah, 09h
-    lea dx, in_prompt
+    lea dx, guest_prompt
     int 21h
-    call read_valid_date
-    jc INVALID_DATE
-    mov in_day, al
-    mov in_month, ah
-    mov in_year, bl
+    call read_two_digit
+    mov guest_id, bl
 
-    ; ------------ Check-out Date Input ------------
+RESERVE_LOOP:
+
+; -------- GET RESERVATION DATE --------
     mov ah, 09h
-    lea dx, out_prompt
+    lea dx, res_prompt
     int 21h
-    call read_valid_date
-    jc INVALID_DATE
-    mov out_day, al
-    mov out_month, ah
-    mov out_year, bl
+    call read_date
+    mov res_day, al
+    mov res_month, ah
+    mov res_year, bl
 
-    ; ------------ Meal Selection ------------
+; -------- GET MEAL TIME --------
     mov ah, 09h
     lea dx, meal_prompt
     int 21h
@@ -52,119 +55,92 @@
     int 21h
     mov meal_type, al
 
-    ; ------------ Reservation Date Input ------------
-    mov ah, 09h
-    lea dx, res_prompt
-    int 21h
-    call read_valid_date
-    jc INVALID_DATE
-    mov res_day, al
-    mov res_month, ah
-    mov res_year, bl
-
-    ; ------------ Validate Reservation is BEFORE Check-In ------------
-    ; Compare Year
-    mov al, res_year
-    cmp al, in_year
-    jb VALID_RESERVATION
-    ja INVALID_DATE
-
-    ; Same year — check month
-    mov al, res_month
-    cmp al, in_month
-    jb VALID_RESERVATION
-    ja INVALID_DATE
-
-    ; Same month — check day
-    mov al, res_day
-    cmp al, in_day
-    jb VALID_RESERVATION
-    jmp INVALID_DATE
-
-VALID_RESERVATION:
-    ; ------------ Add Meal Price ------------
-    mov al, meal_type
     cmp al, 'B'
-    je ADD_B
+    je CUISINE_B
     cmp al, 'L'
-    je ADD_L
+    je CUISINE_LD
     cmp al, 'D'
-    je ADD_D
+    je CUISINE_LD
     jmp INVALID_DATE
 
-ADD_B:
-    mov ax, 200
-    jmp ADD_PRICE
-ADD_L:
-    mov ax, 300
-    jmp ADD_PRICE
-ADD_D:
-    mov ax, 400
-
-ADD_PRICE:
-    add total_bill, ax
+CUISINE_B:
     mov ah, 09h
-    lea dx, add_msg
+    lea dx, cuisine_prompt_b
     int 21h
-    jmp SHOW_BILL
+    mov ah, 01h
+    int 21h
+    sub al, '0'
+    cmp al, 1
+    jb INVALID_DATE
+    cmp al, 2
+    ja INVALID_DATE
+    mov cuisine_choice, al
+    jmp GET_PEOPLE
+
+CUISINE_LD:
+    mov ah, 09h
+    lea dx, cuisine_prompt_ld
+    int 21h
+    mov ah, 01h
+    int 21h
+    sub al, '0'
+    cmp al, 1
+    jb INVALID_DATE
+    cmp al, 3
+    ja INVALID_DATE
+    mov cuisine_choice, al
+    jmp GET_PEOPLE
+
+GET_PEOPLE:
+    mov ah, 09h
+    lea dx, person_prompt
+    int 21h
+    call read_digit
+    mov num_people, al
+    call calculate_price
+
+    ; Ask if reserve again
+    mov ah, 09h
+    lea dx, another_prompt
+    int 21h
+    mov ah, 01h
+    int 21h
+    cmp al, 'Y'
+    je RESERVE_LOOP
+
+; -------- PRINT FINAL BILL --------
+    mov ah, 09h
+    lea dx, final_msg
+    int 21h
+    mov ax, total_bill
+    call print_number
+    jmp DONE
 
 INVALID_DATE:
     mov ah, 09h
     lea dx, error_msg
     int 21h
-    jmp DONE
-
-SHOW_BILL:
-    mov ah, 09h
-    lea dx, newline
-    int 21h
-    lea dx, final_msg
-    int 21h
-
-    mov ax, total_bill
-    call print_number
 
 DONE:
     mov ax, 4C00h
     int 21h
 
-; ------------ Validate and Read Realistic Date ------------
-read_valid_date proc
-    ; Reads a valid DD/MM/YY and returns in AL (day), AH (month), BL (year)
-    ; Carry flag set = invalid date
-    call read_two_digit
-    mov al, bl  ; Day
-    cmp al, 1
-    jb invalid
-    cmp al, 31
-    ja invalid
+; -------- SUBROUTINES --------
 
-    ; Skip '/'
+read_date proc
+    call read_two_digit
+    mov al, bl
     mov ah, 01h
     int 21h
-
     call read_two_digit
-    mov ah, bl  ; Month
-    cmp ah, 1
-    jb invalid
-    cmp ah, 12
-    ja invalid
-
-    ; Skip '/'
+    mov ah, bl
     mov ah, 01h
     int 21h
-
     call read_two_digit
-    mov bl, bl  ; Year
-    clc         ; clear carry = valid
+    mov bl, bl
     ret
+read_date endp
 
-invalid:
-    stc         ; set carry = invalid
-    ret
-read_valid_date endp
-
-; ------------ Subroutine to Read Two-Digit Number ------------
 read_two_digit proc
     mov ah, 01h
     int 21h
@@ -183,26 +159,77 @@ read_two_digit proc
     ret
 read_two_digit endp
 
-; ------------ Print Number in AX ------------
+read_digit proc
+    mov ah, 01h
+    int 21h
+    sub al, '0'
+    ret
+read_digit endp
+
+calculate_price proc
+    mov al, meal_type
+    cmp al, 'B'
+    je CALC_B
+
+; L or D
+    cmp cuisine_choice, 1
+    je L_BENGALI
+    cmp cuisine_choice, 2
+    je L_CHINESE
+    cmp cuisine_choice, 3
+    je L_ME
+    jmp DONE
+
+CALC_B:
+    cmp cuisine_choice, 1
+    je B_BENGALI
+    cmp cuisine_choice, 2
+    je B_ENGLISH
+    jmp DONE
+
+B_BENGALI:
+    mov ax, 150
+    jmp MULTI
+B_ENGLISH:
+    mov ax, 200
+    jmp MULTI
+L_BENGALI:
+    mov ax, 300
+    jmp MULTI
+L_CHINESE:
+    mov ax, 400
+    jmp MULTI
+L_ME:
+    mov ax, 500
+
+MULTI:
+    mov bl, num_people
+    mul bl
+    add total_bill, ax
+    mov ah, 09h
+    lea dx, add_msg
+    int 21h
+    ret
+calculate_price endp
+
 print_number proc
+    ; AX = number
     mov cx, 0
     mov bx, 10
-.next_digit:
+print_loop:
     xor dx, dx
     div bx
     push dx
     inc cx
-    test ax, ax
-    jnz .next_digit
-
-.print_loop:
+    cmp ax, 0
+    jne print_loop
+print_digits:
     pop dx
     add dl, '0'
     mov ah, 02h
     int 21h
-    loop .print_loop
+    loop print_digits
     ret
 print_number endp
 
 end
-
