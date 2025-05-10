@@ -54,7 +54,6 @@ event_day dw 0
 event_month dw 0
 event_year dw 0
 
-; ----- CODE -----
 .CODE
 MAIN:
     mov AX, @DATA
