@@ -19,11 +19,19 @@
     m1 db "What would you like to do now?$"
     m2 db "1.Room service$"
     m3 db "2.Arrange an event$"
-    m4 db "3.View your bill$"
-    m5 db "4.Restaurant reservation$"
-    m6 db "5.Drop a review/feedback$" 
-    m7 db "6.Cancel your stay with us$"  ; Added '$' terminator
-    m8 db "7.Go back$"
+    
+    m5 db "3.Restaurant reservation$"
+    m6 db "4.Drop a review/feedback$" 
+    m7 db "5.Cancel your stay with us$"  ; Added '$' terminator
+    m8 db "6.Go back$"
+    
+    
+    sure_msg db "Are you sure you want to cancel your stay with us?(Y/N)$"
+    cancel_msg db "We're sorry to hear you've canceled your stay. We hope to welcome you another time. Safe travels and best wishes!$"    
+    
+    
+  
+    
     
     
         
@@ -36,8 +44,8 @@
     msg_duration    db 13, 10, 'Duration of stay (days): $'
     
     ; Confirmation messages
-    msg_confirm     db 13, 10, 'Choose an option:', 13, 10
-                    db '1. Confirm', 13, 10
+    msg_confirm     db 13, 10, 'Choose an option: ', 13, 10
+                    db '1.Confirm', 13, 10
                     db '2. Cancel', 13, 10, 'Your choice: $'
     msg_invalid_choice db 13, 10, 'Invalid choice. Please try again.$'
     msg_book_room   db 13, 10, 'BOOK room', 13, 10, '$'
@@ -60,7 +68,7 @@
     
     ; Confirmation message
     msg_confirmation db 13, 10, 'Your ID is $'
-    msg_thanks       db '. Thank you for choosing us!$'
+    msg_thanks       db 'Keep this generated ID as your password for logging in next time. Thank you for choosing us!$'
     
     ; Floor names
     floor_names     db 'Ground$', '1st   $', '2nd   $'
@@ -252,7 +260,8 @@ event_year dw 0
 .code
 main proc
     mov ax, @data
-    mov ds, ax 
+    mov ds, ax
+welcome: 
     
 lea dx,welcome_msg
 mov ah,9
@@ -266,6 +275,13 @@ mov ah,2
 int 21h    
     
 Home_page:
+mov dl,10
+mov ah,2
+int 21h
+mov dl,13
+mov ah,2
+int 21h
+
  
 lea dx,choices
 mov ah,9
@@ -579,7 +595,7 @@ confirm_options:
     cmp al, '1'
     je confirm_booking
     cmp al, '2'
-    je start_booking    ; Start over if user chooses Cancel
+    je home_page    ; Start over if user chooses Cancel
     
     ; Invalid choice, show error message and try again
     mov ah, 09h
@@ -877,18 +893,9 @@ start_login:
     mov ah, 2
     int 21h 
     
-    lea dx, m3
-    mov ah, 9
-    int 21h 
-
-    mov dl, 10
-    mov ah, 2
-    int 21h
-    mov dl, 13
-    mov ah, 2
-    int 21h 
     
-    lea dx, m4
+    
+    lea dx, m3
     mov ah, 9
     int 21h 
 
@@ -965,10 +972,20 @@ start_login:
     je Start_room_service
     cmp bl,'2'
     je Start_arranging_event
-    CMP BL,'4'
+    CMP BL,'3'
     je Restaurant_reservation
+    cmp bl,'4'
+    je feedback 
     cmp bl,'5'
-    je feedback
+    je cancellation
+    cmp bl,'6'
+    je home_page
+    
+    
+    
+    
+    
+    
 
                   
     
@@ -977,6 +994,40 @@ start_login:
     jmp Home_page
 
 ; ---- Procedure to store guest information ----
+cancellation:
+MOV DL,13
+MOV AH,2
+INT 21H
+MOV DL,10
+INT 21H
+
+lea dx,sure_msg
+mov ah,9
+int 21h
+mov ah,1
+int 21h
+MOV DL,13
+MOV AH,2
+INT 21H
+MOV DL,10
+INT 21H
+cmp al,'N'
+jmp start_login
+cmp al,'n'
+
+lea dx,cancel_msg
+mov ah,9
+int 21h
+MOV DL,13
+MOV AH,2
+INT 21H
+MOV DL,10
+INT 21H
+
+
+
+
+
 feedback:
 MOV DL,13
 MOV AH,2
